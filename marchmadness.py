@@ -25,6 +25,16 @@ PARTICIPANTS_URL = (
 with open(".secrets/keys.json") as f:
     api_key = json.load(f)["cbb_key"] # api_key now contains my api key
 
+round_dict = {
+    1 : "First Four",
+    2 : "First Round",
+    3: "Second Round",
+    4: "Sweet 16",
+    5: "Elite Eight",
+    6: "Final Four",
+    7: "National Championship"
+}
+
 class Team(NamedTuple):
     id: str
     name: str
@@ -32,10 +42,17 @@ class Team(NamedTuple):
     seed: int
 
 class Region(NamedTuple):
+    id: str
     name: str
     location: str
     rank: int
     teams: List[Team]
+
+class Game(NamedTuple):
+    id: str
+    away: Team
+    home: Team
+    round: int
 
 class RegionError(Exception):
     def __init__(self):
@@ -55,6 +72,18 @@ def _get_madness_id(year: str):
             return tournament["id"]
     return None
 
+def _parse_region(region: str):
+    if region.lower() in ["midwest", "mw", "midwest region", "Midwest Regional"]:
+        return "Midwest Regional"
+    elif region.lower() in ["west", "w", "west region", "West Regional"]:
+        return "West Regional"
+    elif region.lower() in ["east", "e", "east region", "East Regional"]:
+        return "East Regional"
+    elif region.lower() in ["south", "s", "south region", "South Regional"]:
+        return "South Regional"
+    else:
+        return None
+
 def find_team(year: str, school: str):
     madness_json = _api_call(PARTICIPANTS_URL.format(id=_get_madness_id(year), key=api_key))
     for bracket in madness_json["brackets"]:
@@ -64,15 +93,8 @@ def find_team(year: str, school: str):
     return None
 
 def get_region(year: str, region: str):
-    if region.lower() in ["midwest", "mw", "midwest region"]:
-        region = "Midwest Regional"
-    elif region.lower() in ["west", "w", "west region"]:
-        region = "West Regional"
-    elif region.lower() in ["east", "e", "east region"]:
-        region = "East Regional"
-    elif region.lower() in ["south", "s", "south region"]:
-        region = "South Regional"
-    else:
+    region = _parse_region(region)
+    if region is None:
         raise RegionError
     madness_json = _api_call(PARTICIPANTS_URL.format(id=_get_madness_id(year), key=api_key))
     for bracket in madness_json["brackets"]:
@@ -80,5 +102,32 @@ def get_region(year: str, region: str):
             teams = []
             for team in bracket["participants"]:
                 teams.append(Team(id=team["id"], name=team["name"], school=team["market"], seed=team["seed"]))
-            return Region(name=region, location=bracket["location"], rank=bracket["rank"], teams=teams)
+            return Region(id=bracket["id"], name=region, location=bracket["location"], rank=bracket["rank"], teams=teams)
     raise RegionError
+
+# 1: First Four, 2: First Round, 3: Second Round, 4: Sweet 16, 5: Elite 8, 6: Final Four, 7: Championship (at least for recent tournaments)
+def get_games_by_round(year: str, round: int):
+    id=_get_madness_id(year)
+    schedule = _api_call(SPECIFIC_TOURNAMENT_URL.format(id=id, key=api_key))["rounds"]
+    for rd in rounds:
+        if rd["name"] == round_dict[round]:
+            for bracket in rd["bracketed"]:
+                region = get_region(year, bracket["name"])
+                # add some more stuff lol
+    pass
+
+def get_games_by_region(year: str, region: str):
+    region = _parse_region(region)
+    if region is None:
+        raise RegionError
+    id=_get_madness_id(year)
+    schedule = _api_call(SPECIFIC_TOURNAMENT_URL.format(id=id, key=api_key))["rounds"]
+    pass
+
+def get_games_by_team(year: str, team: str):
+    id=_get_madness_id(year)
+    schedule = _api_call(SPECIFIC_TOURNAMENT_URL.format(id=id, key=api_key))["rounds"]
+    pass
+
+# print(get_region("2021", "w"))
+print(schedule)
