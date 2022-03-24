@@ -5,6 +5,7 @@ API Links:
 """
 
 import json
+import time
 from typing import List, Dict, Generator, NamedTuple, Optional, Tuple
 import requests
 
@@ -28,7 +29,7 @@ class Team(NamedTuple):
     id: str
     name: str
     school: str
-    rank: int
+    seed: int
 
 class Region(NamedTuple):
     name: str
@@ -36,15 +37,48 @@ class Region(NamedTuple):
     rank: int
     teams: List[Team]
 
-def get_madness_id(year: str):
-    tourneys_url = POSTSEASON_TOURNAMENTS_URL.format(year=year, key=api_key)
-    tourneys_json = requests.get(tourneys_url).json()
-    madness_id = tourneys_json["tournaments"][1]["id"]
-    return madness_id
+class RegionError(Exception):
+    def __init__(self):
+        super().__init__("Invalid region code.")
 
-madness_2021_id = get_madness_id("2020")
-print(madness_2021_id)
-# madness_2021_url = PARTICIPANTS_URL.format(id=madness_2021_id, key=api_key)
-# madness_2021 = requests.get(madness_2021_url)
-# print(madness_2021)
-# print(madness_2021.raise_for_status())
+def _api_call(link: str) -> str:
+    print("Making API call...")
+    print(link)
+    output = requests.get(link).json()
+    time.sleep(1)   # Necessary b/c I'm limited to 1 call per second... sadge
+    return output
+
+def _get_madness_id(year: str):
+    tourneys_json = _api_call(POSTSEASON_TOURNAMENTS_URL.format(year=year, key=api_key))
+    for tournament in tourneys_json["tournaments"]:
+        if tournament["name"] == "NCAA Men's Division I Basketball Tournament":
+            return tournament["id"]
+    return None
+
+def find_team(year: str, school: str):
+    madness_json = _api_call(PARTICIPANTS_URL.format(id=_get_madness_id(year), key=api_key))
+    for bracket in madness_json["brackets"]:
+        for team in bracket["participants"]:
+            if school in [team["name"], team["market"]]:
+                return Team(id=team["id"], name=team["name"], school=team["market"], seed=team["seed"])
+    return None
+
+def get_region(year: str, region: str):
+    if region.lower() in ["midwest", "mw", "midwest region"]:
+        region = "Midwest Regional"
+    elif region.lower() in ["west", "w", "west region"]:
+        region = "West Regional"
+    elif region.lower() in ["east", "e", "east region"]:
+        region = "East Regional"
+    elif region.lower() in ["south", "s", "south region"]:
+        region = "South Regional"
+    else:
+        raise RegionError
+    madness_json = _api_call(PARTICIPANTS_URL.format(id=_get_madness_id(year), key=api_key))
+    for bracket in madness_json["brackets"]:
+        if bracket["name"] == region:
+            teams = []
+            for team in bracket["participants"]:
+                teams.append(Team(id=team["id"], name=team["name"], school=team["market"], seed=team["seed"]))
+            return Region(name=region, location=bracket["location"], rank=bracket["rank"], teams=teams)
+    raise RegionError
