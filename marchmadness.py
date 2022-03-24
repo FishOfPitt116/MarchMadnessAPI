@@ -9,16 +9,16 @@ from typing import List, Dict, Generator, NamedTuple, Optional, Tuple
 import requests
 
 POSTSEASON_TOURNAMENTS_URL = (
-    "https://api.sportradar.us/ncaamb/trial/v4/en/tournaments/{year}/PST/schedule.json?api_key={key}"
+    "https://api.sportradar.us/ncaamb/trial/v7/en/tournaments/{year}/PST/schedule.json?api_key={key}"
 ) # use .format(year=num) to call
 CONFERENCE_TOURNAMENTS_URL = (
-    "https://api.sportradar.us/ncaamb/trial/v4/en/tournaments/{year}/PST/schedule.json?api_key={key}"
+    "https://api.sportradar.us/ncaamb/trial/v7/en/tournaments/{year}/PST/schedule.json?api_key={key}"
 )
 SPECIFIC_TOURNAMENT_URL = (
-    "http://api.sportradar.us/ncaamb/trial/v7/en/tournaments/{id}/schedule.json?api_key={key}"
+    "https://api.sportradar.us/ncaamb/trial/v7/en/tournaments/{id}/schedule.json?api_key={key}"
 ) # get id from postseason_tournaments_url to use here
 PARTICIPANTS_URL = (
-    "http://api.sportradar.us/ncaamb/trial/v7/en/tournaments/{id}/summary.json?api_key={key}"
+    "https://api.sportradar.us/ncaamb/trial/v7/en/tournaments/{id}/summary.json?api_key={key}"
 )
 
 with open(".secrets/keys.json") as f:
@@ -35,3 +35,16 @@ class Region(NamedTuple):
     location: str
     rank: int
     teams: List[Team]
+
+def get_madness_id(year: str):
+    tourneys_url = POSTSEASON_TOURNAMENTS_URL.format(year=year, key=api_key)
+    tourneys_json = requests.get(tourneys_url).json()
+    madness_id = tourneys_json["tournaments"][1]["id"]
+    return madness_id
+
+madness_2021_id = get_madness_id("2020")
+print(madness_2021_id)
+# madness_2021_url = PARTICIPANTS_URL.format(id=madness_2021_id, key=api_key)
+# madness_2021 = requests.get(madness_2021_url)
+# print(madness_2021)
+# print(madness_2021.raise_for_status())
